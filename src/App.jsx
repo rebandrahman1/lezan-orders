@@ -336,10 +336,16 @@ export default function App() {
       // گەڕاندنەوەی سێبەرەکان
       printElement.classList.add('shadow-2xl');
 
+      // دروستکردنی ناوی فایلەکە: ژمارەی پسوڵە_ناوی کڕیار_بەروار
+      const safeCustomerName = (printData?.customerName || 'کڕیار').replace(/[\/\\?%*:|"<>]/g, '-'); // پاککردنەوەی ناو لە هێماکان
+      const invoiceNumberStr = printData?.invoiceNumber || 'پسوڵە';
+      const safeDate = new Date(printData?.createdAt || Date.now()).toISOString().split('T')[0]; // بەروار بە فۆرماتی YYYY-MM-DD
+      const fileName = `${invoiceNumberStr}_${safeCustomerName}_${safeDate}.png`;
+
       // دروستکردنی لینک و داگرتنی
       const image = canvas.toDataURL("image/png", 1.0);
       const link = document.createElement('a');
-      link.download = `LezanDesign_Invoice_${printData?.invoiceNumber || 'New'}.png`;
+      link.download = fileName;
       link.href = image;
       link.click();
       
