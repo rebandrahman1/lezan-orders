@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Search, PlusCircle, FileText, Printer, Save, CheckCircle, MapPin, Phone, User, Calendar, Loader, Trash2, Edit, AlertCircle, ArrowRight, X, Check, RotateCcw, Truck, Clock, Calculator, DollarSign, TrendingUp, TruckIcon } from 'lucide-react';
+import { Package, Search, PlusCircle, FileText, Printer, Save, CheckCircle, MapPin, Phone, User, Calendar, Loader, Trash2, Edit, AlertCircle, ArrowRight, X, Check, RotateCcw, Truck, Clock, Calculator, DollarSign, TrendingUp, TruckIcon, Image as ImageIcon } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -57,6 +57,7 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState({ text: '', type: '' });
   
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, orderId: null });
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false); // دۆخێک بۆ کاتی دروستکردنی وێنەکە
 
   // دۆخی بەروار بۆ بەشی ژمێریاری (بە شێوەیەکی بنەڕەتی مانگی ئێستا)
   const [dateRange, setDateRange] = useState({
@@ -73,12 +74,20 @@ export default function App() {
     return 'LZN-' + Math.floor(100000 + Math.random() * 900000);
   };
 
-  // دانانی ئایکۆن و مێتا تاگەکانی مۆبایل و Tailwind
+  // دانانی ئایکۆن و مێتا تاگەکانی مۆبایل، Tailwind و html2canvas
   useEffect(() => {
     if (!document.getElementById('tailwind-cdn')) {
       const script = document.createElement('script');
       script.id = 'tailwind-cdn';
       script.src = 'https://cdn.tailwindcss.com';
+      document.head.appendChild(script);
+    }
+
+    // هێنانی html2canvas بۆ دروستکردنی وێنە
+    if (!document.getElementById('html2canvas-cdn')) {
+      const script = document.createElement('script');
+      script.id = 'html2canvas-cdn';
+      script.src = 'https://html2canvas.hertzen.com/dist/html2canvas.min.js';
       document.head.appendChild(script);
     }
     
@@ -302,6 +311,48 @@ export default function App() {
     }
   };
 
+  // کرداری سەیڤکردنی پسوڵە وەک وێنە
+  const handleSaveAsImage = async () => {
+    const printElement = document.getElementById('printable-receipt');
+    if (!printElement || typeof window.html2canvas === 'undefined') {
+      showToast('تکایە کەمێک چاوەڕێ بکە تا سیستەم ئامادە دەبێت', 'error');
+      return;
+    }
+
+    setIsGeneratingImage(true);
+    showToast('خەریکی دروستکردنی وێنەکەیە...', 'success');
+
+    try {
+      // شاردنەوەی سێبەرەکان کاتی دروستکردنی وێنە بۆ ئەوەی خاوێن دەربچێت
+      printElement.classList.remove('shadow-2xl');
+      
+      const canvas = await window.html2canvas(printElement, {
+        scale: 2, // بۆ کوالێتی بەرزتر
+        useCORS: true, // بۆ ئەوەی لۆگۆ و وێنەکان کێشەیان نەبێت
+        backgroundColor: '#ffffff',
+        logging: false
+      });
+
+      // گەڕاندنەوەی سێبەرەکان
+      printElement.classList.add('shadow-2xl');
+
+      // دروستکردنی لینک و داگرتنی
+      const image = canvas.toDataURL("image/png", 1.0);
+      const link = document.createElement('a');
+      link.download = `LezanDesign_Invoice_${printData?.invoiceNumber || 'New'}.png`;
+      link.href = image;
+      link.click();
+      
+      setIsGeneratingImage(false);
+      showToast('وێنەکە بە سەرکەوتوویی دابەزی', 'success');
+    } catch (error) {
+      console.error('هەڵە لە دروستکردنی وێنە:', error);
+      setIsGeneratingImage(false);
+      showToast('هەڵەیەک ڕوویدا لە دروستکردنی وێنەکەدا', 'error');
+      printElement.classList.add('shadow-2xl'); // گەڕاندنەوە لە کاتی هەڵەشدا
+    }
+  };
+
   const confirmDelete = async () => {
     if (!user || !deleteModal.orderId) return;
     
@@ -498,34 +549,48 @@ export default function App() {
         </div>
       )}
 
-      {/* --- پەنجەرەی چاپکردن --- */}
+      {/* --- پەنجەرەی چاپکردن و وێنەگرتن --- */}
       {currentTab === 'print' && printData && (
         <div className="absolute inset-0 z-40 bg-stone-200/90 backdrop-blur-md overflow-y-auto flex flex-col print-wrapper-fix">
           <div className="no-print sticky top-0 bg-white shadow-md border-b border-stone-300 p-3 md:p-4 flex justify-between items-center px-4 md:px-8 z-50 w-full shrink-0">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 md:gap-4">
                <button 
                  onClick={() => {
                     setCurrentTab(editingId ? 'new' : 'reports');
                     setPrintData(null);
                  }} 
-                 className="px-3 md:px-5 py-2.5 rounded-xl border-2 border-stone-300 text-stone-700 font-bold hover:bg-stone-50 hover:text-blue-700 transition flex items-center gap-2 text-sm md:text-base"
-                 title="گەڕانەوە بۆ لیستی داواکارییەکان بێ چاپکردن"
+                 className="px-3 md:px-5 py-2.5 rounded-xl border-2 border-stone-300 text-stone-700 font-bold hover:bg-stone-50 hover:text-blue-700 transition flex items-center gap-1.5 md:gap-2 text-xs md:text-base"
+                 title="گەڕانەوە بۆ لیستی داواکارییەکان"
                >
                  <ArrowRight size={18} />
                  گەڕانەوە
                </button>
             </div>
-            <button 
-              onClick={handleActualPrint} 
-              className="px-4 md:px-8 py-2.5 md:py-3 rounded-xl bg-blue-600 text-white font-bold text-sm md:text-lg hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition flex items-center gap-2 md:gap-3 transform hover:scale-105"
-              title="کردنەوەی پەنجەرەی پرینتەر بۆ چاپکردنی پسوڵەکە"
-            >
-              <Printer size={20} />
-              چاپکردن
-            </button>
+            
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={handleSaveAsImage}
+                disabled={isGeneratingImage}
+                className={`px-3 md:px-6 py-2.5 md:py-3 rounded-xl border-2 border-blue-600 text-blue-700 font-bold text-xs md:text-base hover:bg-blue-50 transition flex items-center gap-1.5 md:gap-2 ${isGeneratingImage ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title="سەیڤکردنی پسوڵەکە وەک وێنە بۆ ناو مۆبایل یان کۆمپیوتەر"
+              >
+                {isGeneratingImage ? <Loader size={18} className="animate-spin" /> : <ImageIcon size={18} />}
+                سەیڤ وەک وێنە
+              </button>
+
+              <button 
+                onClick={handleActualPrint} 
+                className="px-4 md:px-8 py-2.5 md:py-3 rounded-xl bg-blue-600 text-white font-bold text-sm md:text-lg hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition flex items-center gap-2 md:gap-3 transform hover:scale-105"
+                title="کردنەوەی پەنجەرەی پرینتەر بۆ چاپکردنی پسوڵەکە"
+              >
+                <Printer size={20} />
+                چاپکردن
+              </button>
+            </div>
           </div>
 
           <div className="print-section flex-1 py-6 md:py-10 w-full flex justify-center bg-transparent">
+            {/* id="printable-receipt" پێویستە بۆ ئەوەی وێنەی لێ بگیرێت */}
             <div id="printable-receipt" className="w-full max-w-[10.5cm] md:mx-auto bg-white relative shadow-2xl print:w-auto print:max-w-full print:mx-0 print:shadow-none print:break-inside-avoid">
               <div className="absolute inset-0 z-0 opacity-10 overflow-hidden rounded-lg pointer-events-none print:opacity-[0.15]">
                 <div className="w-full h-full" style={{ backgroundImage: `url("${floralBg}")`, backgroundSize: '60px' }}></div>
@@ -541,7 +606,8 @@ export default function App() {
 
                   <div className="flex justify-center mb-3 relative z-20">
                     <div className="bg-white/95 p-2 rounded-2xl shadow-sm border border-blue-100 print:shadow-none">
-                      <img src={logoUrl} alt="Lezan Design" className="h-16 md:h-20 object-contain print:h-24" />
+                      {/* crossOrigin="anonymous" بۆ ئەوەی کێشە لە دروستکردنی وێنەکە دروست نەکات */}
+                      <img src={logoUrl} crossOrigin="anonymous" alt="Lezan Design" className="h-16 md:h-20 object-contain print:h-24" />
                     </div>
                   </div>
 
@@ -619,8 +685,8 @@ export default function App() {
                     <p className="text-[10px] md:text-[11px] font-bold text-blue-950 leading-relaxed mb-4 px-2 md:px-3 bg-white/80 py-2.5 rounded-lg border border-blue-200 shadow-sm print:border-none print:bg-transparent print:shadow-none print:text-black print:text-xs">
                       سوپاس بۆ هەڵبژاردنی لێزان دیزاین،بە ڕەخنە و پێشنیارەکانتان سەربەرزمان دەکەن،تکایە فیدباکی خۆتانمان بۆ بنێرنەوە
                     </p>
-                    {/* لینکی QR لێرە بەکارهاتووە */}
-                    <img src={qrUrl} alt="QR" className="h-16 w-16 md:h-20 md:w-20 mx-auto rounded-lg shadow-sm border-2 border-white print:border-none print:shadow-none print:h-24 print:w-24" />
+                    {/* crossOrigin="anonymous" بۆ ئەوەی کێشە لە دروستکردنی وێنەکە دروست نەکات */}
+                    <img src={qrUrl} crossOrigin="anonymous" alt="QR" className="h-16 w-16 md:h-20 md:w-20 mx-auto rounded-lg shadow-sm border-2 border-white print:border-none print:shadow-none print:h-24 print:w-24" />
                   </div>
                 </div>
               </div>
