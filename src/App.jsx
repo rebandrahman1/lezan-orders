@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Search, PlusCircle, FileText, Printer, Save, CheckCircle, MapPin, Phone, User, Calendar, Loader, Trash2, Edit, AlertCircle, ArrowRight, X, Check, RotateCcw, ListTodo } from 'lucide-react';
+import { Package, Search, PlusCircle, FileText, Printer, Save, CheckCircle, MapPin, Phone, User, Calendar, Loader, Trash2, Edit, AlertCircle, ArrowRight, X, Check, RotateCcw, Truck, Clock, Calculator, DollarSign, TrendingUp, TruckIcon } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// دۆخی بنچینەیی فۆڕمی داواکاری بە زیادکردنی دۆخی (ئێستا = active)
+// دۆخی بنچینەیی فۆڕمی داواکاری بە دۆخی (لە ئامادەکردندایە = pending) بۆ هەر داواکارییەکی نوێ
 const initialFormState = {
   invoiceNumber: '',
   customerName: '',
@@ -14,7 +14,7 @@ const initialFormState = {
   deliveryFee: '',
   details: '',
   notes: '',
-  status: 'active'
+  status: 'pending' // گۆڕدرا بۆ pending (لە ئامادەکردندایە)
 };
 
 // ڕێکخستنەکانی فایەربەیسەکەی خۆت
@@ -43,9 +43,10 @@ export default function App() {
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   
+  // تابی سەرەکی: 'new', 'reports', 'accounting', 'print'
   const [currentTab, setCurrentTab] = useState('new');
-  // تابی ڕاپۆرتەکان: 'active' (ئێستا)، 'completed' (تەواوبوو)، 'returned' (گەڕاوە)
-  const [reportTab, setReportTab] = useState('active'); 
+  // تابی ڕاپۆرتەکان: 'pending' (لە ئامادەکردندایە)، 'on_way' (لە ڕێگایە)، 'completed' (تەواوبوو)، 'returned' (گەڕاوە)
+  const [reportTab, setReportTab] = useState('pending'); 
   
   const [formData, setFormData] = useState(initialFormState);
   const [editingId, setEditingId] = useState(null);
@@ -55,6 +56,12 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState({ text: '', type: '' });
   
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, orderId: null });
+
+  // دۆخی بەروار بۆ بەشی ژمێریاری (بە شێوەیەکی بنەڕەتی مانگی ئێستا)
+  const [dateRange, setDateRange] = useState({
+    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0], // یەکەم ڕۆژی مانگ
+    endDate: new Date().toISOString().split('T')[0] // ئەمڕۆ
+  });
 
   const calculateTotal = (items = [], deliveryFee = 0) => {
     const itemsTotal = items.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
@@ -67,7 +74,6 @@ export default function App() {
 
   // دانانی ئایکۆن و مێتا تاگەکانی مۆبایل و Tailwind
   useEffect(() => {
-    // Tailwind CSS
     if (!document.getElementById('tailwind-cdn')) {
       const script = document.createElement('script');
       script.id = 'tailwind-cdn';
@@ -75,7 +81,6 @@ export default function App() {
       document.head.appendChild(script);
     }
     
-    // زیادکردنی ئایکۆن بۆ شاشەی مۆبایل
     let linkIcon = document.querySelector("link[rel~='icon']");
     if (!linkIcon) {
       linkIcon = document.createElement('link');
@@ -92,7 +97,6 @@ export default function App() {
     }
     linkApple.href = logoUrl;
 
-    // گونجاندنی شاشە بۆ مۆبایل
     let metaViewport = document.querySelector("meta[name='viewport']");
     if (!metaViewport) {
       metaViewport = document.createElement('meta');
@@ -196,7 +200,7 @@ export default function App() {
         ...formData,
         updatedAt: Date.now(),
         userId: user.uid,
-        status: formData.status || 'active'
+        status: formData.status || 'pending' // داواکاری نوێ دەچێتە بەشی (لە ئامادەکردندایە)
       };
       
       let savedOrder = { ...orderData };
@@ -224,6 +228,7 @@ export default function App() {
         });
         setEditingId(null);
         setCurrentTab('reports');
+        setReportTab(orderData.status); // بگەڕێرەوە بۆ ئەو تابەی کە داواکارییەکەی تێدا پاشەکەوت کرا
       }
       
     } catch (error) {
@@ -242,7 +247,7 @@ export default function App() {
       deliveryFee: order.deliveryFee || '',
       details: order.details || '',
       notes: order.notes || '',
-      status: order.status || 'active'
+      status: order.status || 'pending'
     });
     setEditingId(order.id);
     setCurrentTab('new');
@@ -253,13 +258,10 @@ export default function App() {
     setCurrentTab('print');
   };
 
-  // شێوازی نوێی چاپکردن کە بۆ مۆبایل و دیسکتۆپ گونجاوە
   const handleActualPrint = () => {
-    // پشکنین کە ئایا ئامێرەکە مۆبایلە یان نا
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
     if (isMobile) {
-      // بۆ مۆبایل پەنجەرەیەکی نوێ دەکەینەوە چونکە ڕێگری لێ ناکرێت
       const printElement = document.getElementById('printable-receipt');
       if (printElement) {
         const printWindow = window.open('', '_blank');
@@ -289,12 +291,10 @@ export default function App() {
           `);
           printWindow.document.close();
         } else {
-          // ئەگەر پەنجەرە نوێیەکە بلۆک کرا، هەوڵی چاپکردنی ئاسایی دەدەین
           window.print();
         }
       }
     } else {
-      // بۆ کۆمپیوتەر ڕاستەوخۆ چاپ دەکات
       setTimeout(() => {
         window.print();
       }, 200);
@@ -315,19 +315,26 @@ export default function App() {
     }
   };
 
+  // گۆڕینی دۆخی داواکارییەکە
   const handleUpdateStatus = async (orderId, newStatus) => {
     try {
       await updateDoc(doc(db, collectionName, orderId), { status: newStatus });
-      const statusText = newStatus === 'completed' ? 'تەواوبوو' : newStatus === 'returned' ? 'گەڕاوە' : 'ئێستا';
-      showToast(`داواکارییەکە گوازرایەوە بۆ بەشی ${statusText}`);
+      const statusText = 
+        newStatus === 'completed' ? 'تەواوبوو' : 
+        newStatus === 'returned' ? 'گەڕاوە' : 
+        newStatus === 'on_way' ? 'لە ڕێگایە' : 'لە ئامادەکردندایە';
+      showToast(`داواکارییەکە گوازرایەوە بۆ بەشی (${statusText})`);
     } catch (error) {
       console.error("هەڵە لە گۆڕینی دۆخ:", error);
       showToast('هەڵەیەک لە گۆڕینی دۆخەکەدا ڕوویدا', 'error');
     }
   };
 
+  // پاڵاوتنی داواکارییەکان بەپێی گەڕان و تابی هەڵبژێردراو
   const filteredOrders = orders.filter(order => {
-    const orderStatus = order.status || 'active';
+    // ئەگەر داواکارییەک کۆن بوو و دۆخی نەبوو، وەک 'لە ئامادەکردندایە' دایدەنێین
+    const orderStatus = order.status === 'active' ? 'pending' : (order.status || 'pending'); 
+    
     const matchesSearch = (order.invoiceNumber && order.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
                           (order.customerName && order.customerName.toLowerCase().includes(searchQuery.toLowerCase())) ||
                           (order.phone && order.phone.includes(searchQuery));
@@ -340,6 +347,49 @@ export default function App() {
     const d = new Date(ts);
     return d.toLocaleDateString('ku-IQ') + ' - ' + d.toLocaleTimeString('ku-IQ', { hour: '2-digit', minute:'2-digit' });
   };
+
+  // --- ژمێریاری (Accounting) ---
+  const getAccountingStats = () => {
+    const start = new Date(dateRange.startDate).getTime();
+    const end = new Date(dateRange.endDate);
+    end.setHours(23, 59, 59, 999); // کۆتایی ڕۆژی دیاریکراو
+    const endTime = end.getTime();
+
+    // فلتەرکردنی داواکارییەکان بەپێی بەروار
+    const ordersInDateRange = orders.filter(order => {
+      const orderDate = order.createdAt || 0;
+      return orderDate >= start && orderDate <= endTime;
+    });
+
+    let stats = {
+      totalRevenue: 0, // کۆی گشتی هەموو پارەی داواکارییەکان
+      completedRevenue: 0, // پارەی داواکارییە گەیشتووەکان
+      returnedRevenue: 0, // پارەی داواکارییە گەڕاوەکان
+      totalDeliveryFees: 0, // کۆی کرێی گەیاندنەکانی (تەنها گەیشتووەکان)
+      netProfit: 0 // قازانجی سافی
+    };
+
+    ordersInDateRange.forEach(order => {
+      const orderTotal = calculateTotal(order.items, order.deliveryFee);
+      const deliveryFee = Number(order.deliveryFee) || 0;
+      
+      stats.totalRevenue += orderTotal;
+
+      if (order.status === 'completed') {
+        stats.completedRevenue += orderTotal;
+        stats.totalDeliveryFees += deliveryFee;
+      } else if (order.status === 'returned') {
+        stats.returnedRevenue += orderTotal;
+      }
+    });
+
+    // قازانجی سافی = پارەی گەیشتووەکان - کرێی گەیاندنیان
+    stats.netProfit = stats.completedRevenue - stats.totalDeliveryFees;
+
+    return { stats, orderCount: ordersInDateRange.length };
+  };
+
+  const accountingData = getAccountingStats();
 
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center bg-stone-100 text-blue-700"><Loader className="animate-spin" size={48} /></div>;
@@ -568,7 +618,7 @@ export default function App() {
                     <p className="text-[10px] md:text-[11px] font-bold text-blue-950 leading-relaxed mb-4 px-2 md:px-3 bg-white/80 py-2.5 rounded-lg border border-blue-200 shadow-sm print:border-none print:bg-transparent print:shadow-none print:text-black print:text-xs">
                       سوپاس بۆ هەڵبژاردنی لێزان دیزاین،بە ڕەخنە و پێشنیارەکانتان سەربەرزمان دەکەن،تکایە فیدباکی خۆتانمان بۆ بنێرنەوە
                     </p>
-                    <img src="https://i.ibb.co/jPTJ47xq/qr-code-5.png" alt="QR" className="h-16 w-16 md:h-20 md:w-20 mx-auto rounded-lg shadow-sm border-2 border-white print:border-none print:shadow-none print:h-24 print:w-24" />
+                    <img src={logoUrl} alt="QR" className="h-16 w-16 md:h-20 md:w-20 mx-auto rounded-lg shadow-sm border-2 border-white print:border-none print:shadow-none print:h-24 print:w-24" />
                   </div>
                 </div>
               </div>
@@ -578,10 +628,9 @@ export default function App() {
       )}
 
       {/* --- ڕووکاری سەرەکی سیستەم --- */}
-      {/* گۆڕانکاری سەرەکی بۆ مۆبایل: بەکارهێنانی flex-col بۆ مۆبایل و flex-row بۆ دیسکتۆپ */}
       <div className={`no-print flex-1 flex flex-col md:flex-row w-full h-full overflow-hidden ${currentTab === 'print' ? 'hidden' : ''}`}>
         
-        {/* شریتی لاکێشە (Sidebar) - لە مۆبایل دەچێتە سەرەوە */}
+        {/* شریتی لاکێشە (Sidebar) */}
         <div className="w-full md:w-64 bg-stone-900 text-stone-300 flex flex-col shadow-2xl z-10 shrink-0 border-b md:border-b-0 border-stone-800">
           <div className="p-4 md:p-6 bg-stone-950 border-b border-stone-800/50 flex flex-row md:flex-col items-center justify-between md:justify-center gap-3">
               <div className="flex items-center gap-3 md:flex-col">
@@ -590,8 +639,6 @@ export default function App() {
                 </div>
                 <h1 className="font-bold text-white text-sm md:text-base tracking-wide whitespace-nowrap">سیستەمی لێزان دیزاین</h1>
               </div>
-              
-              {/* لەسەر مۆبایل دوگمەیەک بۆ نوێکردنەوە یان لۆگۆ بەسە بۆ ڕووکارەکە */}
           </div>
           
           <div className="p-3 md:p-4 flex flex-row md:flex-col gap-2 md:gap-3 overflow-x-auto hide-scrollbar items-center">
@@ -623,6 +670,15 @@ export default function App() {
                   <FileText size={20} />
                   <span className="text-sm md:text-base">ڕاپۆرتەکان</span>
               </button>
+
+              <button 
+                onClick={() => setCurrentTab('accounting')} 
+                className={`flex-1 md:w-full flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2.5 md:py-3.5 rounded-xl transition-all duration-300 whitespace-nowrap ${currentTab === 'accounting' ? 'bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50 scale-100 md:scale-105' : 'bg-stone-800 md:bg-transparent hover:bg-stone-700 md:hover:bg-stone-800 hover:text-white'}`}
+                title="ژمێریاری و ئامارەکانی داهات"
+              >
+                  <Calculator size={20} />
+                  <span className="text-sm md:text-base">ژمێریاری</span>
+              </button>
           </div>
           
           <div className="hidden md:block p-4 text-center text-[10px] text-stone-600 border-t border-stone-800 mt-auto">
@@ -630,7 +686,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* بەشی ناوەڕۆک */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 relative h-full w-full">
           
           {toastMessage.text && (
@@ -848,7 +903,7 @@ export default function App() {
                 </div>
               </div>
             </div>
-          ) : (
+          ) : currentTab === 'reports' ? (
             <div className="max-w-6xl mx-auto h-full flex flex-col pb-10">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 md:mb-8 gap-4 bg-white p-4 md:p-6 rounded-2xl md:rounded-3xl shadow-sm border border-stone-200/60 w-full">
                  <div className="flex flex-col gap-3 md:gap-4 w-full lg:w-auto">
@@ -859,15 +914,23 @@ export default function App() {
                      ڕاپۆرتەکان
                    </h2>
                    
-                   {/* بەشی لیست و تابەکانی ڕاپۆرتەکان - سکرۆڵی ئاسۆیی بۆ مۆبایل */}
+                   {/* بەشی لیست و تابەکانی ڕاپۆرتەکان */}
                    <div className="flex gap-1.5 md:gap-2 bg-stone-100 p-1.5 rounded-xl w-full overflow-x-auto hide-scrollbar">
                       <button 
-                        onClick={() => setReportTab('active')} 
-                        className={`flex-1 min-w-fit px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 md:gap-2 ${reportTab === 'active' ? 'bg-white shadow-sm text-blue-600' : 'text-stone-500 hover:text-stone-700'}`} 
+                        onClick={() => setReportTab('pending')} 
+                        className={`flex-1 min-w-fit px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 md:gap-2 ${reportTab === 'pending' ? 'bg-white shadow-sm text-blue-600' : 'text-stone-500 hover:text-stone-700'}`} 
                         title="پیشاندانی ئەو داواکارییانەی کە ئێستا لە ئامادەکردندان"
                       >
-                        <ListTodo size={16}/> 
-                        ئێستا
+                        <Clock size={16}/> 
+                        لە ئامادەکردندایە
+                      </button>
+                      <button 
+                        onClick={() => setReportTab('on_way')} 
+                        className={`flex-1 min-w-fit px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 md:gap-2 ${reportTab === 'on_way' ? 'bg-white shadow-sm text-indigo-600' : 'text-stone-500 hover:text-stone-700'}`} 
+                        title="پیشاندانی ئەو داواکارییانەی کە نێردراون و لە ڕێگان بۆ کڕیار"
+                      >
+                        <Truck size={16}/> 
+                        لە ڕێگایە
                       </button>
                       <button 
                         onClick={() => setReportTab('completed')} 
@@ -880,7 +943,7 @@ export default function App() {
                       <button 
                         onClick={() => setReportTab('returned')} 
                         className={`flex-1 min-w-fit px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-bold transition flex items-center justify-center gap-1.5 md:gap-2 ${reportTab === 'returned' ? 'bg-white shadow-sm text-orange-600' : 'text-stone-500 hover:text-stone-700'}`} 
-                        title="پیشاندانی ئەو داواکارییانەی کە گەڕێندراونەتەوە یان هەڵوەشاونەتەوە"
+                        title="پیشاندانی ئەو داواکارییانەی کە گەڕێندراونەتەوە"
                       >
                         <RotateCcw size={16}/> 
                         گەڕاوە
@@ -913,8 +976,12 @@ export default function App() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                   {filteredOrders.map(order => (
                     <div key={order.id} className="bg-white rounded-xl md:rounded-2xl shadow-sm border border-stone-200/80 p-4 md:p-5 hover:shadow-md hover:border-blue-300 transition-all duration-300 group flex flex-col relative overflow-hidden">
-                      {/* نیشانەی ڕەنگاوڕەنگ بەپێی دۆخی داواکارییەکە لە لای ڕاست */}
-                      <div className={`absolute top-0 bottom-0 right-0 w-1 md:w-1.5 ${order.status === 'completed' ? 'bg-emerald-500' : order.status === 'returned' ? 'bg-orange-500' : 'bg-blue-500'}`}></div>
+                      {/* نیشانەی ڕەنگاوڕەنگ بەپێی دۆخی داواکارییەکە */}
+                      <div className={`absolute top-0 bottom-0 right-0 w-1 md:w-1.5 ${
+                        (order.status || 'pending') === 'completed' ? 'bg-emerald-500' : 
+                        (order.status || 'pending') === 'returned' ? 'bg-orange-500' : 
+                        (order.status || 'pending') === 'on_way' ? 'bg-indigo-500' : 'bg-blue-500'
+                      }`}></div>
                       
                       <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center gap-3 mb-3 md:mb-4 border-b border-stone-100 pb-3 pl-1">
                         <div>
@@ -923,33 +990,56 @@ export default function App() {
                         </div>
                         
                         <div className="flex gap-1 md:gap-1.5 flex-wrap justify-end w-full sm:w-auto">
-                          {reportTab !== 'active' && (
+                          {/* دوگمەکانی گۆڕینی دۆخ بەپێی ئەوەی لە کام تابەداین */}
+                          {reportTab === 'pending' && (
                             <button 
-                              onClick={() => handleUpdateStatus(order.id, 'active')} 
+                              onClick={() => handleUpdateStatus(order.id, 'on_way')} 
+                              className="p-1.5 md:p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors border border-indigo-200"
+                              title="گواستنەوە بۆ بەشی (لە ڕێگایە)"
+                            >
+                              <Truck size={16} className="md:w-[18px] md:h-[18px]" />
+                            </button>
+                          )}
+                          
+                          {reportTab === 'on_way' && (
+                            <>
+                              <button 
+                                onClick={() => handleUpdateStatus(order.id, 'completed')} 
+                                className="p-1.5 md:p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200"
+                                title="دیاریکردن وەک (تەواوبوو)"
+                              >
+                                <Check size={16} className="md:w-[18px] md:h-[18px]" />
+                              </button>
+                              <button 
+                                onClick={() => handleUpdateStatus(order.id, 'pending')} 
+                                className="p-1.5 md:p-2 bg-stone-50 text-stone-500 hover:text-blue-600 hover:bg-blue-100 rounded-lg transition-colors border border-stone-200"
+                                title="گێڕانەوە بۆ بەشی (لە ئامادەکردندایە)"
+                              >
+                                <Clock size={16} className="md:w-[18px] md:h-[18px]" />
+                              </button>
+                            </>
+                          )}
+
+                          {(reportTab === 'completed' || reportTab === 'returned') && (
+                            <button 
+                              onClick={() => handleUpdateStatus(order.id, 'pending')} 
                               className="p-1.5 md:p-2 bg-stone-50 text-stone-500 hover:text-blue-600 hover:bg-blue-100 rounded-lg transition-colors border border-stone-200"
-                              title="گێڕانەوە بۆ لیستی داواکارییەکانی ئێستا"
+                              title="گێڕانەوە بۆ بەشی (لە ئامادەکردندایە)"
                             >
-                              <ListTodo size={16} className="md:w-[18px] md:h-[18px]" />
+                              <Clock size={16} className="md:w-[18px] md:h-[18px]" />
                             </button>
                           )}
-                          {reportTab !== 'completed' && (
-                            <button 
-                              onClick={() => handleUpdateStatus(order.id, 'completed')} 
-                              className="p-1.5 md:p-2 bg-stone-50 text-stone-500 hover:text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors border border-stone-200"
-                              title="دیاریکردن وەک داواکاری تەواوبوو"
-                            >
-                              <Check size={16} className="md:w-[18px] md:h-[18px]" />
-                            </button>
-                          )}
+
                           {reportTab !== 'returned' && (
                             <button 
                               onClick={() => handleUpdateStatus(order.id, 'returned')} 
                               className="p-1.5 md:p-2 bg-stone-50 text-stone-500 hover:text-orange-600 hover:bg-orange-100 rounded-lg transition-colors border border-stone-200"
-                              title="دیاریکردن وەک داواکاری گەڕاوە"
+                              title="دیاریکردن وەک (داواکاری گەڕاوە)"
                             >
                               <RotateCcw size={16} className="md:w-[18px] md:h-[18px]" />
                             </button>
                           )}
+
                           <button 
                             onClick={() => handlePrintExisting(order)} 
                             className="p-1.5 md:p-2 bg-stone-50 text-stone-500 hover:text-blue-700 hover:bg-blue-100 rounded-lg transition-colors border border-stone-200"
@@ -1029,6 +1119,106 @@ export default function App() {
                   ))}
                 </div>
               )}
+            </div>
+          ) : (
+            /* --- بەشی ژمێریاری (Accounting) --- */
+            <div className="max-w-4xl mx-auto pb-10">
+              <div className="bg-white p-4 md:p-8 rounded-2xl md:rounded-3xl shadow-sm border border-stone-200/60 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -translate-y-1/2 translate-x-1/2 opacity-50 blur-2xl pointer-events-none"></div>
+                
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4 relative z-10">
+                  <h2 className="text-xl md:text-2xl font-bold text-stone-800 flex items-center gap-2 md:gap-3">
+                    <div className="p-1.5 md:p-2 bg-blue-100 text-blue-600 rounded-lg">
+                      <Calculator size={20} className="md:w-6 md:h-6" />
+                    </div>
+                    ژمێریاری و ئامارەکان
+                  </h2>
+                  
+                  {/* فلتەری بەروار */}
+                  <div className="flex items-center gap-2 bg-stone-50 p-2 rounded-xl border border-stone-200 w-full md:w-auto">
+                    <div className="flex-1 md:w-36">
+                      <label className="block text-[10px] text-stone-500 font-bold mb-1">لە بەرواری</label>
+                      <input 
+                        type="date" 
+                        value={dateRange.startDate}
+                        onChange={(e) => setDateRange({...dateRange, startDate: e.target.value})}
+                        className="w-full p-1.5 bg-white border border-stone-200 rounded-lg text-xs md:text-sm outline-none focus:border-blue-400"
+                      />
+                    </div>
+                    <span className="text-stone-400 font-bold mt-4">-</span>
+                    <div className="flex-1 md:w-36">
+                      <label className="block text-[10px] text-stone-500 font-bold mb-1">بۆ بەرواری</label>
+                      <input 
+                        type="date" 
+                        value={dateRange.endDate}
+                        onChange={(e) => setDateRange({...dateRange, endDate: e.target.value})}
+                        className="w-full p-1.5 bg-white border border-stone-200 rounded-lg text-xs md:text-sm outline-none focus:border-blue-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 mb-6 text-center text-sm md:text-base text-blue-800 font-medium">
+                  ئامارەکانی نێوان <span className="font-bold font-mono" dir="ltr">{dateRange.startDate}</span> و <span className="font-bold font-mono" dir="ltr">{dateRange.endDate}</span> پیشان دەدات. لەم ماوەیەدا (<span className="font-bold">{accountingData.orderCount}</span>) داواکاری تۆمارکراون.
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 relative z-10">
+                  {/* کارتی کۆی گشتی پارەکان */}
+                  <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-sm hover:shadow-md transition">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-stone-100 text-stone-600 rounded-lg"><Package size={18} /></div>
+                      <h3 className="font-bold text-stone-600 text-sm">کۆی گشتی هەموو داواکارییەکان</h3>
+                    </div>
+                    <p className="text-[10px] text-stone-400 mb-4">پارەی گشت داواکارییەکان بەبێ گوێدانە دۆخەکەیان</p>
+                    <div className="text-xl md:text-2xl font-black text-stone-800 font-mono" dir="ltr">
+                      {accountingData.stats.totalRevenue.toLocaleString()} <span className="text-sm font-bold text-stone-500">IQD</span>
+                    </div>
+                  </div>
+
+                  {/* کارتی پارەی گەڕاوەکان */}
+                  <div className="bg-orange-50/50 rounded-2xl border border-orange-100 p-5 shadow-sm hover:shadow-md transition">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-orange-100 text-orange-600 rounded-lg"><RotateCcw size={18} /></div>
+                      <h3 className="font-bold text-orange-700 text-sm">پارەی داواکارییە گەڕاوەکان</h3>
+                    </div>
+                    <p className="text-[10px] text-orange-500/80 mb-4">ئەو پارەیەی کە گەڕاوەتەوە و نەبووەتە داهات</p>
+                    <div className="text-xl md:text-2xl font-black text-orange-700 font-mono" dir="ltr">
+                      {accountingData.stats.returnedRevenue.toLocaleString()} <span className="text-sm font-bold text-orange-500">IQD</span>
+                    </div>
+                  </div>
+
+                  {/* کارتی کرێی گەیاندن */}
+                  <div className="bg-stone-50 rounded-2xl border border-stone-200 p-5 shadow-sm hover:shadow-md transition">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-stone-200 text-stone-700 rounded-lg"><TruckIcon size={18} /></div>
+                      <h3 className="font-bold text-stone-700 text-sm">کۆی کرێی گەیاندن</h3>
+                    </div>
+                    <p className="text-[10px] text-stone-500 mb-4">کۆی گشتی کرێی گەیاندن تەنها بۆ داواکارییە تەواوبووەکان</p>
+                    <div className="text-xl md:text-2xl font-black text-stone-700 font-mono" dir="ltr">
+                      {accountingData.stats.totalDeliveryFees.toLocaleString()} <span className="text-sm font-bold text-stone-500">IQD</span>
+                    </div>
+                  </div>
+
+                  {/* کارتی قازانجی سافی */}
+                  <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-5 shadow-md hover:shadow-lg transition relative overflow-hidden transform hover:-translate-y-1">
+                    <div className="absolute -right-4 -bottom-4 text-emerald-100"><TrendingUp size={100} /></div>
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 bg-emerald-500 text-white rounded-lg shadow-sm"><DollarSign size={18} /></div>
+                        <h3 className="font-bold text-emerald-800 text-base md:text-lg">قازانجی سافی</h3>
+                      </div>
+                      <p className="text-[11px] text-emerald-600 mb-4 font-medium leading-relaxed">
+                        کۆی پارەی داواکارییە گەیشتووەکان کەم کرێی گەیاندنەکەیان
+                        <br/>
+                        <span className="opacity-70 text-[9px]">(پارەی گەیشتووەکان: {accountingData.stats.completedRevenue.toLocaleString()})</span>
+                      </p>
+                      <div className="text-2xl md:text-3xl font-black text-emerald-600 font-mono" dir="ltr">
+                        {accountingData.stats.netProfit.toLocaleString()} <span className="text-base font-bold text-emerald-500">IQD</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
