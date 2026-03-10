@@ -35,6 +35,7 @@ const collectionName = 'orders';
 // دروستکردنی نەخشی فلۆراڵی بۆ باکگراوندی پسوڵەکە بە ڕەنگی شین
 const floralBg = "data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%231e3a8a' fill-opacity='0.08'%3E%3Cpath d='M30 0v20c0 5.523-4.477 10-10 10H0v-5h20c2.761 0 5-2.239 5-5V0h5zm0 60V40c0-5.523 4.477-10 10-10h20v5H40c-2.761 0-5 2.239-5 5v20h-5zM0 30h20c5.523 0 10-4.477 10-10V0h5v20c0 8.284-6.716 15-15 15H0v-5zm60 0H40c-5.523 0-10 4.477-10 10v20h-5V40c0-8.284 6.716-15 15-15h20v5z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E";
 const logoUrl = "https://i.ibb.co/21CJbdv0/f60f7987303f8d39ba0c07ab91e1fdb5.png";
+const qrUrl = "https://i.ibb.co/jPTJ47xq/qr-code-5.png"; // لینکی QR بە جیا دانرا
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -618,7 +619,8 @@ export default function App() {
                     <p className="text-[10px] md:text-[11px] font-bold text-blue-950 leading-relaxed mb-4 px-2 md:px-3 bg-white/80 py-2.5 rounded-lg border border-blue-200 shadow-sm print:border-none print:bg-transparent print:shadow-none print:text-black print:text-xs">
                       سوپاس بۆ هەڵبژاردنی لێزان دیزاین،بە ڕەخنە و پێشنیارەکانتان سەربەرزمان دەکەن،تکایە فیدباکی خۆتانمان بۆ بنێرنەوە
                     </p>
-                    <img src={logoUrl} alt="QR" className="h-16 w-16 md:h-20 md:w-20 mx-auto rounded-lg shadow-sm border-2 border-white print:border-none print:shadow-none print:h-24 print:w-24" />
+                    {/* لینکی QR لێرە بەکارهاتووە */}
+                    <img src={qrUrl} alt="QR" className="h-16 w-16 md:h-20 md:w-20 mx-auto rounded-lg shadow-sm border-2 border-white print:border-none print:shadow-none print:h-24 print:w-24" />
                   </div>
                 </div>
               </div>
@@ -656,7 +658,7 @@ export default function App() {
               </button>
               
               {editingId && currentTab === 'new' && (
-                <div className="flex-1 md:w-full flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2.5 md:py-3.5 rounded-xl bg-blue-600/20 text-blue-400 md:text-blue-500 font-bold border border-blue-600/30 whitespace-nowrap">
+                <div className="flex-1 md:w-full flex items-center justify-center md:justify-start gap-2 px-3 md:px-4 py-2.5 md:py-3.5 rounded-xl bg-blue-600/20 text-blue-400 md:text-blue-50 font-bold border border-blue-600/30 whitespace-nowrap">
                   <Edit size={20} />
                   <span className="text-sm md:text-base">دەستکاریکردن</span>
                 </div>
