@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Search, PlusCircle, FileText, Printer, Save, CheckCircle, MapPin, Phone, User, Calendar, Loader, Trash2, Edit, AlertCircle, ArrowRight, X, Check, RotateCcw, Truck, Clock, Calculator, DollarSign, TrendingUp, TruckIcon, Image as ImageIcon } from 'lucide-react';
+import { Package, Search, PlusCircle, FileText, Printer, Save, CheckCircle, MapPin, Phone, User, Calendar, Loader, Trash2, Edit, AlertCircle, ArrowRight, X, Check, RotateCcw, Truck, Clock, Calculator, DollarSign, TrendingUp, TruckIcon, Image as ImageIcon, Lock, LogOut } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -14,7 +14,7 @@ const initialFormState = {
   deliveryFee: '',
   details: '',
   notes: '',
-  status: 'pending' // گۆڕدرا بۆ pending (لە ئامادەکردندایە)
+  status: 'pending'
 };
 
 // ڕێکخستنەکانی فایەربەیسەکەی خۆت
@@ -35,18 +35,24 @@ const collectionName = 'orders';
 // دروستکردنی نەخشی فلۆراڵی بۆ باکگراوندی پسوڵەکە بە ڕەنگی شین
 const floralBg = "data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%231e3a8a' fill-opacity='0.08'%3E%3Cpath d='M30 0v20c0 5.523-4.477 10-10 10H0v-5h20c2.761 0 5-2.239 5-5V0h5zm0 60V40c0-5.523 4.477-10 10-10h20v5H40c-2.761 0-5 2.239-5 5v20h-5zM0 30h20c5.523 0 10-4.477 10-10V0h5v20c0 8.284-6.716 15-15 15H0v-5zm60 0H40c-5.523 0-10 4.477-10 10v20h-5V40c0-8.284 6.716-15 15-15h20v5z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E";
 const logoUrl = "https://i.ibb.co/21CJbdv0/f60f7987303f8d39ba0c07ab91e1fdb5.png";
-const qrUrl = "https://i.ibb.co/jPTJ47xq/qr-code-5.png"; // لینکی QR بە جیا دانرا
+const qrUrl = "https://i.ibb.co/jPTJ47xq/qr-code-5.png";
 
 export default function App() {
+  // دۆخی چوونەژوورەوە
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return localStorage.getItem('lezan_auth') === 'true';
+  });
+  const [loginUsername, setLoginUsername] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   
-  // تابی سەرەکی: 'new', 'reports', 'accounting', 'print'
   const [currentTab, setCurrentTab] = useState('new');
-  // تابی ڕاپۆرتەکان: 'pending' (لە ئامادەکردندایە)، 'on_way' (لە ڕێگایە)، 'completed' (تەواوبوو)، 'returned' (گەڕاوە)
   const [reportTab, setReportTab] = useState('pending'); 
   
   const [formData, setFormData] = useState(initialFormState);
@@ -57,12 +63,11 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState({ text: '', type: '' });
   
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, orderId: null });
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false); // دۆخێک بۆ کاتی دروستکردنی وێنەکە
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
-  // دۆخی بەروار بۆ بەشی ژمێریاری (بە شێوەیەکی بنەڕەتی مانگی ئێستا)
   const [dateRange, setDateRange] = useState({
-    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0], // یەکەم ڕۆژی مانگ
-    endDate: new Date().toISOString().split('T')[0] // ئەمڕۆ
+    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0]
   });
 
   const calculateTotal = (items = [], deliveryFee = 0) => {
@@ -74,7 +79,26 @@ export default function App() {
     return 'LZN-' + Math.floor(100000 + Math.random() * 900000);
   };
 
-  // دانانی ئایکۆن و مێتا تاگەکانی مۆبایل، Tailwind و html2canvas
+  // کرداری چوونەژوورەوە
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (loginUsername === 'Lezan' && loginPassword === 'Reband250195') {
+      setIsLoggedIn(true);
+      localStorage.setItem('lezan_auth', 'true');
+      setLoginError('');
+    } else {
+      setLoginError('ناوی بەکارهێنەر یان وشەی نهێنی هەڵەیە!');
+    }
+  };
+
+  // کرداری چوونەدەرەوە
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    localStorage.removeItem('lezan_auth');
+    setLoginUsername('');
+    setLoginPassword('');
+  };
+
   useEffect(() => {
     if (!document.getElementById('tailwind-cdn')) {
       const script = document.createElement('script');
@@ -83,7 +107,6 @@ export default function App() {
       document.head.appendChild(script);
     }
 
-    // هێنانی html2canvas بۆ دروستکردنی وێنە
     if (!document.getElementById('html2canvas-cdn')) {
       const script = document.createElement('script');
       script.id = 'html2canvas-cdn';
@@ -124,14 +147,13 @@ export default function App() {
     }
   }, []);
 
-  // چوونەژوورەوەی فایەربەیس
   useEffect(() => {
     const initAuth = async () => {
       try {
         await signInAnonymously(auth);
       } catch (err) {
-        console.error('هەڵە لە چوونەژوورەوە:', err);
-        setAuthError('کێشە لە پەیوەندیکردن بە فایەربەیس: ' + err.message);
+        console.error('هەڵە لە چوونەژوورەوەی فایەربەیس:', err);
+        setAuthError('کێشە لە پەیوەندیکردن بە داتابەیس: ' + err.message);
         setAuthLoading(false);
       }
     };
@@ -144,9 +166,8 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // هێنانی داتاکان
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isLoggedIn) return;
     setLoadingOrders(true);
     
     const ordersRef = collection(db, collectionName);
@@ -156,9 +177,8 @@ export default function App() {
         id: doc.id,
         ...doc.data()
       }));
-      const myOrders = fetchedOrders.filter(order => order.userId === user.uid);
-      myOrders.sort((a, b) => b.createdAt - a.createdAt);
-      setOrders(myOrders);
+      fetchedOrders.sort((a, b) => b.createdAt - a.createdAt);
+      setOrders(fetchedOrders);
       setLoadingOrders(false);
     }, (error) => {
       console.error("هەڵە لە هێنانی داواکارییەکان:", error);
@@ -166,7 +186,7 @@ export default function App() {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, isLoggedIn]);
 
   useEffect(() => {
     if (currentTab === 'new' && !editingId && !formData.invoiceNumber) {
@@ -210,7 +230,7 @@ export default function App() {
         ...formData,
         updatedAt: Date.now(),
         userId: user.uid,
-        status: formData.status || 'pending' // داواکاری نوێ دەچێتە بەشی (لە ئامادەکردندایە)
+        status: formData.status || 'pending'
       };
       
       let savedOrder = { ...orderData };
@@ -238,7 +258,7 @@ export default function App() {
         });
         setEditingId(null);
         setCurrentTab('reports');
-        setReportTab(orderData.status); // بگەڕێرەوە بۆ ئەو تابەی کە داواکارییەکەی تێدا پاشەکەوت کرا
+        setReportTab(orderData.status); 
       }
       
     } catch (error) {
@@ -311,7 +331,6 @@ export default function App() {
     }
   };
 
-  // کرداری سەیڤکردنی پسوڵە وەک وێنە
   const handleSaveAsImage = async () => {
     const printElement = document.getElementById('printable-receipt');
     if (!printElement || typeof window.html2canvas === 'undefined') {
@@ -323,26 +342,22 @@ export default function App() {
     showToast('خەریکی دروستکردنی وێنەکەیە...', 'success');
 
     try {
-      // شاردنەوەی سێبەرەکان کاتی دروستکردنی وێنە بۆ ئەوەی خاوێن دەربچێت
       printElement.classList.remove('shadow-2xl');
       
       const canvas = await window.html2canvas(printElement, {
-        scale: 2, // بۆ کوالێتی بەرزتر
-        useCORS: true, // بۆ ئەوەی لۆگۆ و وێنەکان کێشەیان نەبێت
+        scale: 2, 
+        useCORS: true, 
         backgroundColor: '#ffffff',
         logging: false
       });
 
-      // گەڕاندنەوەی سێبەرەکان
       printElement.classList.add('shadow-2xl');
 
-      // دروستکردنی ناوی فایلەکە: ژمارەی پسوڵە_ناوی کڕیار_بەروار
-      const safeCustomerName = (printData?.customerName || 'کڕیار').replace(/[\/\\?%*:|"<>]/g, '-'); // پاککردنەوەی ناو لە هێماکان
+      const safeCustomerName = (printData?.customerName || 'کڕیار').replace(/[\/\\?%*:|"<>]/g, '-'); 
       const invoiceNumberStr = printData?.invoiceNumber || 'پسوڵە';
-      const safeDate = new Date(printData?.createdAt || Date.now()).toISOString().split('T')[0]; // بەروار بە فۆرماتی YYYY-MM-DD
+      const safeDate = new Date(printData?.createdAt || Date.now()).toISOString().split('T')[0]; 
       const fileName = `${invoiceNumberStr}_${safeCustomerName}_${safeDate}.png`;
 
-      // دروستکردنی لینک و داگرتنی
       const image = canvas.toDataURL("image/png", 1.0);
       const link = document.createElement('a');
       link.download = fileName;
@@ -355,7 +370,7 @@ export default function App() {
       console.error('هەڵە لە دروستکردنی وێنە:', error);
       setIsGeneratingImage(false);
       showToast('هەڵەیەک ڕوویدا لە دروستکردنی وێنەکەدا', 'error');
-      printElement.classList.add('shadow-2xl'); // گەڕاندنەوە لە کاتی هەڵەشدا
+      printElement.classList.add('shadow-2xl'); 
     }
   };
 
@@ -373,7 +388,6 @@ export default function App() {
     }
   };
 
-  // گۆڕینی دۆخی داواکارییەکە
   const handleUpdateStatus = async (orderId, newStatus) => {
     try {
       await updateDoc(doc(db, collectionName, orderId), { status: newStatus });
@@ -388,9 +402,7 @@ export default function App() {
     }
   };
 
-  // پاڵاوتنی داواکارییەکان بەپێی گەڕان و تابی هەڵبژێردراو
   const filteredOrders = orders.filter(order => {
-    // ئەگەر داواکارییەک کۆن بوو و دۆخی نەبوو، وەک 'لە ئامادەکردندایە' دایدەنێین
     const orderStatus = order.status === 'active' ? 'pending' : (order.status || 'pending'); 
     
     const matchesSearch = (order.invoiceNumber && order.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -406,25 +418,23 @@ export default function App() {
     return d.toLocaleDateString('ku-IQ') + ' - ' + d.toLocaleTimeString('ku-IQ', { hour: '2-digit', minute:'2-digit' });
   };
 
-  // --- ژمێریاری (Accounting) ---
   const getAccountingStats = () => {
     const start = new Date(dateRange.startDate).getTime();
     const end = new Date(dateRange.endDate);
-    end.setHours(23, 59, 59, 999); // کۆتایی ڕۆژی دیاریکراو
+    end.setHours(23, 59, 59, 999); 
     const endTime = end.getTime();
 
-    // فلتەرکردنی داواکارییەکان بەپێی بەروار
     const ordersInDateRange = orders.filter(order => {
       const orderDate = order.createdAt || 0;
       return orderDate >= start && orderDate <= endTime;
     });
 
     let stats = {
-      totalRevenue: 0, // کۆی گشتی هەموو پارەی داواکارییەکان
-      completedRevenue: 0, // پارەی داواکارییە گەیشتووەکان
-      returnedRevenue: 0, // پارەی داواکارییە گەڕاوەکان
-      totalDeliveryFees: 0, // کۆی کرێی گەیاندنەکانی (تەنها گەیشتووەکان)
-      netProfit: 0 // قازانجی سافی
+      totalRevenue: 0, 
+      completedRevenue: 0, 
+      returnedRevenue: 0, 
+      totalDeliveryFees: 0, 
+      netProfit: 0 
     };
 
     ordersInDateRange.forEach(order => {
@@ -441,13 +451,79 @@ export default function App() {
       }
     });
 
-    // قازانجی سافی = پارەی گەیشتووەکان - کرێی گەیاندنیان
     stats.netProfit = stats.completedRevenue - stats.totalDeliveryFees;
 
     return { stats, orderCount: ordersInDateRange.length };
   };
 
   const accountingData = getAccountingStats();
+
+  // پیشاندانی پەنجەرەی چوونەژوورەوە ئەگەر یوزەر نەچووبێتە ژوورەوە
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-stone-100 flex items-center justify-center p-4 relative overflow-hidden font-[Calibri]" dir="rtl">
+        {/* Background decorations */}
+        <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-400/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div className="bg-white/90 backdrop-blur-xl p-8 md:p-10 rounded-[2rem] shadow-2xl w-full max-w-md relative z-10 border border-white/50">
+          <div className="flex justify-center mb-6">
+            <div className="bg-white p-3 rounded-2xl shadow-sm border border-stone-100">
+              <img src={logoUrl} alt="Logo" className="h-20 md:h-24 object-contain" />
+            </div>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-black text-center text-blue-950 mb-2">سیستەمی لێزان دیزاین</h1>
+          <p className="text-center text-stone-500 mb-8 text-sm font-medium">تکایە زانیارییەکانت بنوسە بۆ چوونەژوورەوە</p>
+
+          <form onSubmit={handleLogin} className="space-y-5">
+            {loginError && (
+              <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-bold text-center border border-red-100 flex items-center justify-center gap-2">
+                <AlertCircle size={18} />
+                {loginError}
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-bold text-stone-700 mb-2">ناوی بەکارهێنەر</label>
+              <div className="relative">
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400"><User size={18} /></div>
+                <input 
+                  type="text" 
+                  value={loginUsername} 
+                  onChange={(e) => setLoginUsername(e.target.value)} 
+                  className="w-full p-3.5 pr-12 rounded-xl border border-stone-200 focus:ring-2 focus:ring-blue-500 outline-none transition bg-stone-50 focus:bg-white font-mono text-lg" 
+                  placeholder="Username" 
+                  dir="ltr" 
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-stone-700 mb-2">وشەی نهێنی</label>
+              <div className="relative">
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400"><Lock size={18} /></div>
+                <input 
+                  type="password" 
+                  value={loginPassword} 
+                  onChange={(e) => setLoginPassword(e.target.value)} 
+                  className="w-full p-3.5 pr-12 rounded-xl border border-stone-200 focus:ring-2 focus:ring-blue-500 outline-none transition bg-stone-50 focus:bg-white font-mono text-lg tracking-widest" 
+                  placeholder="••••••••" 
+                  dir="ltr" 
+                />
+              </div>
+            </div>
+            <button 
+              type="submit" 
+              className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-600/30 hover:bg-blue-700 transition transform hover:-translate-y-0.5 mt-4 text-lg"
+            >
+              چوونەژوورەوە
+            </button>
+          </form>
+          <div className="mt-8 text-center text-xs text-stone-400">
+            گەشەپێدراوە بۆ پاراستنی زانیارییەکانت
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (authLoading) {
     return <div className="min-h-screen flex items-center justify-center bg-stone-100 text-blue-700"><Loader className="animate-spin" size={48} /></div>;
@@ -612,7 +688,6 @@ export default function App() {
 
                   <div className="flex justify-center mb-3 relative z-20">
                     <div className="bg-white/95 p-2 rounded-2xl shadow-sm border border-blue-100 print:shadow-none">
-                      {/* crossOrigin="anonymous" بۆ ئەوەی کێشە لە دروستکردنی وێنەکە دروست نەکات */}
                       <img src={logoUrl} crossOrigin="anonymous" alt="Lezan Design" className="h-16 md:h-20 object-contain print:h-24" />
                     </div>
                   </div>
@@ -691,7 +766,6 @@ export default function App() {
                     <p className="text-[10px] md:text-[11px] font-bold text-blue-950 leading-relaxed mb-4 px-2 md:px-3 bg-white/80 py-2.5 rounded-lg border border-blue-200 shadow-sm print:border-none print:bg-transparent print:shadow-none print:text-black print:text-xs">
                       سوپاس بۆ هەڵبژاردنی لێزان دیزاین،بە ڕەخنە و پێشنیارەکانتان سەربەرزمان دەکەن،تکایە فیدباکی خۆتانمان بۆ بنێرنەوە
                     </p>
-                    {/* crossOrigin="anonymous" بۆ ئەوەی کێشە لە دروستکردنی وێنەکە دروست نەکات */}
                     <img src={qrUrl} crossOrigin="anonymous" alt="QR" className="h-16 w-16 md:h-20 md:w-20 mx-auto rounded-lg shadow-sm border-2 border-white print:border-none print:shadow-none print:h-24 print:w-24" />
                   </div>
                 </div>
@@ -706,13 +780,22 @@ export default function App() {
         
         {/* شریتی لاکێشە (Sidebar) */}
         <div className="w-full md:w-64 bg-stone-900 text-stone-300 flex flex-col shadow-2xl z-10 shrink-0 border-b md:border-b-0 border-stone-800">
-          <div className="p-4 md:p-6 bg-stone-950 border-b border-stone-800/50 flex flex-row md:flex-col items-center justify-between md:justify-center gap-3">
+          <div className="p-4 md:p-6 bg-stone-950 border-b border-stone-800/50 flex flex-row md:flex-col items-center justify-between md:justify-center gap-3 relative">
               <div className="flex items-center gap-3 md:flex-col">
                 <div className="bg-white p-1.5 md:p-2 rounded-xl md:rounded-2xl flex justify-center w-12 md:w-full">
                    <img src={logoUrl} alt="Logo" className="h-10 md:h-16 object-contain" />
                 </div>
                 <h1 className="font-bold text-white text-sm md:text-base tracking-wide whitespace-nowrap">سیستەمی لێزان دیزاین</h1>
               </div>
+
+              {/* دوگمەی چوونەدەرەوە بۆ مۆبایل */}
+              <button 
+                onClick={handleLogout}
+                className="md:hidden p-2 text-stone-400 hover:text-white bg-stone-800 hover:bg-red-600 rounded-xl transition"
+                title="چوونەدەرەوە لە سیستەم"
+              >
+                <LogOut size={18} />
+              </button>
           </div>
           
           <div className="p-3 md:p-4 flex flex-row md:flex-col gap-2 md:gap-3 overflow-x-auto hide-scrollbar items-center">
@@ -755,8 +838,19 @@ export default function App() {
               </button>
           </div>
           
-          <div className="hidden md:block p-4 text-center text-[10px] text-stone-600 border-t border-stone-800 mt-auto">
-              گەشەپێدراوە لەلایەن AI © 2026
+          {/* دوگمەی چوونەدەرەوە بۆ دیسکتۆپ */}
+          <div className="hidden md:flex flex-col p-4 border-t border-stone-800 mt-auto gap-3">
+              <button 
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-stone-800 text-stone-400 hover:bg-red-600 hover:text-white transition-all font-bold"
+                title="چوونەدەرەوە لە سیستەم"
+              >
+                <LogOut size={18} />
+                چوونەدەرەوە
+              </button>
+              <div className="text-center text-[10px] text-stone-600">
+                  گەشەپێدراوە لەلایەن AI © 2026
+              </div>
           </div>
         </div>
 
